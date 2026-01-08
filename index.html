@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ECO FLY // SkyScope AI Ultimate</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'hud-black': '#020617',
+                        'hud-panel': 'rgba(15, 23, 42, 0.95)',
+                        'hud-border': 'rgba(6, 182, 212, 0.3)',
+                        'hud-cyan': '#06b6d4',
+                        'radar-green': '#10b981',
+                        'alert-amber': '#f59e0b',
+                        'military-red': '#ef4444',
+                        'glass': 'rgba(15, 23, 42, 0.85)'
+                    },
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                        sans: ['"Rajdhani"', 'sans-serif'],
+                    },
+                    animation: {
+                        'scanline': 'scanline 8s linear infinite',
+                        'radar-spin': 'radarSpin 10s linear infinite',
+                        'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                    },
+                    keyframes: {
+                        scanline: {
+                            '0%': { transform: 'translateY(-100%)' },
+                            '100%': { transform: 'translateY(100%)' }
+                        },
+                        radarSpin: {
+                            'from': { transform: 'translate(-50%, -50%) rotate(0deg)' },
+                            'to': { transform: 'translate(-50%, -50%) rotate(360deg)' }
+                        },
+                        fadeIn: {
+                            'from': { opacity: '0' },
+                            'to': { opacity: '1' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #020617;
+            color: #ecfdf5;
+            overflow: hidden;
+            font-family: 'Rajdhani', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Leaflet Overrides for Dark Mode */
+        .leaflet-container { background: #020617; }
+        
+        /* CSS Filters for Map Tiles */
+        .map-tiles-dark .leaflet-tile-pane { 
+            filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(90%); 
+        }
+        .map-tiles-sat .leaflet-tile-pane { 
+            filter: brightness(110%) contrast(110%) saturate(120%); 
+        }
+
+        /* Custom UI Elements */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.90);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* Flight Icons */
+        .flight-icon-container { position: relative; width: 100%; height: 100%; pointer-events: none; }
+        .flight-icon-wrapper { position: absolute; top:0; left:0; transition: transform 0.1s linear; will-change: transform; z-index: 10; pointer-events: auto; }
+        .flight-shadow { 
+            position: absolute; top: 0; left: 0; 
+            color: #000; opacity: 0.6; filter: blur(3px);
+            transition: transform 0.1s linear; z-index: 0;
+            transform-origin: center;
+        }
+
+        /* Radar Overlay */
+        .radar-sweep {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 150vmax; height: 150vmax;
+            background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(16, 185, 129, 0.1) 360deg);
+            z-index: 400;
+            pointer-events: none;
+            animation: radarSpin 12s linear infinite;
+        }
+
+        /* Scanlines */
+        .scanlines {
+            position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px; opacity: 0.3;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
+
+        /* Synth Grid for Cockpit */
+        .synth-grid {
+            background-image: linear-gradient(rgba(6,182,212,0.2) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(6,182,212,0.2) 1px, transparent 1px);
+            background-size: 40px 40px;
+            perspective: 500px;
+            transform: rotateX(60deg) translateY(-50px) translateZ(-100px);
+            animation: gridMove 2s linear infinite;
+            transform-style: preserve-3d;
+        }
+        @keyframes gridMove { from { background-position: 0 0; } to { background-position: 0 40px; } }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+    <div class="scanlines"></div>
+    <script type="module" src="./index.tsx"></script>
+</body>
+</html>
